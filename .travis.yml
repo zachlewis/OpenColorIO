@@ -12,7 +12,12 @@ os:
   - osx
 
 env:
-  - OPTIONS="-DCMAKE_BUILD_TYPE=Release -DOCIO_BUILD_TESTS=yes"
+  - OPTIONS="-DCMAKE_BUILD_TYPE=Release -DOCIO_BUILD_TESTS=yes -DOCIO_BUILD_DOCS=yes"
+
+# Install missing packages
+install:
+  - if [[ $TRAVIS_OS_NAME = linux ]]; then sudo apt-get update -qq; fi
+  - if [[ $TRAVIS_OS_NAME = linux ]]; then sudo apt-get install -qq texlive-full; fi
 
 # Run the Build script
 script:
@@ -20,7 +25,13 @@ script:
  - cd _build
  - cmake .. -DCMAKE_INSTALL_PREFIX=../_install $OPTIONS
  - cmake --build . --target install
-
-# Run Tests
-after_script:
  - ctest --output-on-failure .
+ - if [[ $TRAVIS_OS_NAME = linux ]]; then cmake --build . --target pdf; fi
+
+deploy:
+  provider: pages
+  skip_cleanup: true
+  github_token: $GITHUB_TOKEN
+  on:
+    tags: true
+  local_dir: ./docs/build-html
