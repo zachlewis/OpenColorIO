@@ -39,12 +39,9 @@ OCIO_NAMESPACE_ENTER
     : std::runtime_error(e)
     {}
 
-    //*** ~Exception
-    Exception::~Exception() throw()
-    {
-    }
-
-
+  
+  
+  
     ExceptionMissingFile::ExceptionMissingFile(const char * msg) throw()
     : Exception(msg)
     {}
@@ -71,6 +68,21 @@ OIIO_ADD_TEST(Exception, Basic)
 {
     static const char* dummyErrorStr = "Dummy error";
 
+    // Test 0 - Trivial one...
+
+    try
+    {
+        throw OCIO::Exception(dummyErrorStr);
+    }
+    catch(const OCIO::Exception& ex)
+    {
+        OIIO_CHECK_EQUAL(strcmp(ex.what(), dummyErrorStr), 0);
+    }
+    catch(...)
+    {
+        OIIO_CHECK_ASSERT(!"Wrong exception type");
+    }
+
     // Test 1
 
     try
@@ -92,6 +104,25 @@ OIIO_ADD_TEST(Exception, Basic)
     {
         OCIO::Exception ex(dummyErrorStr);
         throw OCIO::Exception(ex);
+    }
+    catch(const std::exception& ex)
+    {
+        OIIO_CHECK_EQUAL(strcmp(ex.what(), dummyErrorStr), 0);
+    }
+    catch(...)
+    {
+        OIIO_CHECK_ASSERT(!"Wrong exception type");
+    }
+}
+
+
+OIIO_ADD_TEST(Exception, MissingFile)
+{
+    static const char* dummyErrorStr = "Dummy error";
+
+    try
+    {
+        throw OCIO::ExceptionMissingFile(dummyErrorStr);
     }
     catch(const std::exception& ex)
     {

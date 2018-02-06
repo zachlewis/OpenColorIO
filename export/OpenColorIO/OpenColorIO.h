@@ -32,6 +32,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdexcept>
 #include <iosfwd>
+#include <string>
 #include <cstddef>
 
 #include "OpenColorABI.h"
@@ -91,8 +92,6 @@ OCIO_NAMESPACE_ENTER
         Exception(const char *) throw();
         //!cpp:function:: Constructor that takes an existing exception.
         Exception(const Exception&) throw();
-        //!cpp:function:: Destructor
-        virtual ~Exception() throw();
     };
     
     //!cpp:class:: An exception class for errors detected at
@@ -191,6 +190,7 @@ OCIO_NAMESPACE_ENTER
     // See :ref:`developers-usageexamples`
     
     //!cpp:function:: Get the current configuration.
+    
     extern OCIOEXPORT ConstConfigRcPtr GetCurrentConfig();
     
     //!cpp:function:: Set the current configuration. This will then store a copy of the specified config.
@@ -210,9 +210,9 @@ OCIO_NAMESPACE_ENTER
         
         //!cpp:function:: Constructor a default empty configuration.
         static ConfigRcPtr Create();
-        //!cpp:function:: Constructor a configuration using the SYNCOLOR environment variable.
+        //!cpp:function::  Constructor a configuration using the OCIO environmnet variable.
         static ConstConfigRcPtr CreateFromEnv();
-        //!cpp:function:: Constructor a configuration using specific config file.
+        //!cpp:function:: Constructor a configuration using a specific config file.
         static ConstConfigRcPtr CreateFromFile(const char * filename);
         //!cpp:function::
         static ConstConfigRcPtr CreateFromStream(std::istream & istream);
@@ -1151,7 +1151,7 @@ OCIO_NAMESPACE_ENTER
         //!cpp:function::
         GpuLanguage getLanguage() const;
         
-        //!cpp:function:: Set the function name of the shader program 
+        //!cpp:function:: Set the function name of the shader program
         void setFunctionName(const char * name);
         //!cpp:function::
         const char * getFunctionName() const;
