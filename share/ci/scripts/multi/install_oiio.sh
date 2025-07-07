@@ -27,6 +27,8 @@ cmake -DCMAKE_BUILD_TYPE=Release \
       -DVERBOSE=ON \
       -DSTOP_ON_WARNING=OFF \
       -DBoost_NO_BOOST_CMAKE=ON \
+      -OpenImageIO_BUILD_MISSING_DEPS=all \
+      -IGNORE_HOMEBREWED_DEPS=ON \
       -DUSE_PYTHON=OFF \
       ../.
 cmake --build . \
