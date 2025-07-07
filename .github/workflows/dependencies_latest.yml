@@ -206,7 +206,6 @@ jobs:
       - name: Install indirect dependencies
         run: |
           share/ci/scripts/macos/install_bison.sh latest
-          share/ci/scripts/macos/install_boost.sh latest
           share/ci/scripts/multi/install_pugixml.sh latest $EXT_PATH
       - name: Install fixed ext package versions
         # Minizip-ng depends on ZLIB. ZLIB must be installed first.
@@ -323,13 +322,6 @@ jobs:
         run: |
           vcpkg install zlib:x64-windows
           vcpkg install tiff:x64-windows
-          vcpkg install boost-asio:x64-windows
-          vcpkg install boost-container:x64-windows
-          vcpkg install boost-filesystem:x64-windows
-          vcpkg install boost-math:x64-windows
-          vcpkg install boost-stacktrace:x64-windows
-          vcpkg install boost-system:x64-windows
-          vcpkg install boost-thread:x64-windows
           share/ci/scripts/multi/install_pugixml.sh latest $EXT_PATH
         shell: bash
       - name: Install fixed ext package versions

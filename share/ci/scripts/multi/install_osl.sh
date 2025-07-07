@@ -30,7 +30,6 @@ if [[ $OSTYPE == 'darwin'* ]]; then
         -DOSL_BUILD_TESTS=OFF \
         -DVERBOSE=ON \
         -DSTOP_ON_WARNING=OFF \
-        -DBoost_NO_BOOST_CMAKE=ON \
         -DLLVM_ROOT=$(brew --prefix llvm@15) \
         ../.
 else # not macOS
@@ -40,7 +39,6 @@ else # not macOS
         -DOSL_BUILD_TESTS=OFF \
         -DVERBOSE=ON \
         -DSTOP_ON_WARNING=OFF \
-        -DBoost_NO_BOOST_CMAKE=ON \
         ../.
 fi
 
