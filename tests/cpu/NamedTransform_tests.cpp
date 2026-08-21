@@ -1566,3 +1566,75 @@ OCIO_ADD_TEST(Config, inactive_named_transform_precedence)
     OCIO_CHECK_EQUAL(config->getNamedTransformNameByIndex(0), std::string("nt2"));
     OCIO_CHECK_EQUAL(config->getNamedTransformNameByIndex(1), std::string("nt3"));
 }
+
+OCIO_ADD_TEST(Config, remove_named_transform)
+{
+    // Removing a named transform must refresh the active and inactive named transform lists
+    // and reset the cache IDs, in the same way removeColorSpace() and clearNamedTransforms()
+    // do. Conversely, removing a name that is not in the config must leave everything alone.
+
+    std::string configStr;
+    configStr += InactiveNTConfigStart;
+    configStr += InactiveNTConfigEnd;
+
+    std::istringstream is;
+    is.str(configStr);
+
+    OCIO::ConfigRcPtr config;
+    OCIO_CHECK_NO_THROW(config = OCIO::Config::CreateFromStream(is)->createEditableCopy());
+    OCIO_REQUIRE_ASSERT(config);
+    OCIO_CHECK_NO_THROW(config->validate());
+
+    OCIO_CHECK_NO_THROW(config->setInactiveColorSpaces("nt1"));
+
+    OCIO_REQUIRE_EQUAL(config->getNumNamedTransforms(OCIO::NAMEDTRANSFORM_ALL), 3);
+    OCIO_REQUIRE_EQUAL(config->getNumNamedTransforms(OCIO::NAMEDTRANSFORM_ACTIVE), 2);
+    OCIO_REQUIRE_EQUAL(config->getNumNamedTransforms(OCIO::NAMEDTRANSFORM_INACTIVE), 1);
+
+    const std::string cacheIDBefore{ config->getCacheID() };
+
+    // Step 1 - Remove an active named transform.
+
+    OCIO_CHECK_NO_THROW(config->removeNamedTransform("nt2"));
+
+    OCIO_CHECK_ASSERT(!config->getNamedTransform("nt2"));
+    OCIO_CHECK_EQUAL(config->getNumNamedTransforms(OCIO::NAMEDTRANSFORM_ALL), 2);
+    OCIO_REQUIRE_EQUAL(config->getNumNamedTransforms(OCIO::NAMEDTRANSFORM_ACTIVE), 1);
+    OCIO_CHECK_EQUAL(std::string("nt3"),
+                     config->getNamedTransformNameByIndex(OCIO::NAMEDTRANSFORM_ACTIVE, 0));
+
+    // The default overloads work on active named transforms and must agree.
+    OCIO_REQUIRE_EQUAL(config->getNumNamedTransforms(), 1);
+    OCIO_CHECK_EQUAL(std::string("nt3"), config->getNamedTransformNameByIndex(0));
+
+    // The config no longer serializes the same way, so the cache ID must differ.
+    const std::string cacheIDAfterActive{ config->getCacheID() };
+    OCIO_CHECK_NE(cacheIDBefore, cacheIDAfterActive);
+
+    // Step 2 - Remove an inactive named transform.
+
+    OCIO_CHECK_NO_THROW(config->removeNamedTransform("nt1"));
+
+    OCIO_CHECK_ASSERT(!config->getNamedTransform("nt1"));
+    OCIO_CHECK_EQUAL(config->getNumNamedTransforms(OCIO::NAMEDTRANSFORM_ALL), 1);
+    OCIO_CHECK_EQUAL(config->getNumNamedTransforms(OCIO::NAMEDTRANSFORM_ACTIVE), 1);
+    OCIO_CHECK_EQUAL(config->getNumNamedTransforms(OCIO::NAMEDTRANSFORM_INACTIVE), 0);
+
+    const std::string cacheIDAfterInactive{ config->getCacheID() };
+    OCIO_CHECK_NE(cacheIDAfterActive, cacheIDAfterInactive);
+
+    // Step 3 - Removing a name that is not in the config changes nothing.
+
+    OCIO_CHECK_NO_THROW(config->removeNamedTransform("does_not_exist"));
+
+    OCIO_CHECK_EQUAL(config->getNumNamedTransforms(OCIO::NAMEDTRANSFORM_ALL), 1);
+    OCIO_CHECK_EQUAL(config->getNumNamedTransforms(OCIO::NAMEDTRANSFORM_ACTIVE), 1);
+    OCIO_CHECK_EQUAL(cacheIDAfterInactive, std::string(config->getCacheID()));
+
+    // Step 4 - An empty name is a no-op too.
+
+    OCIO_CHECK_NO_THROW(config->removeNamedTransform(""));
+
+    OCIO_CHECK_EQUAL(config->getNumNamedTransforms(OCIO::NAMEDTRANSFORM_ALL), 1);
+    OCIO_CHECK_EQUAL(cacheIDAfterInactive, std::string(config->getCacheID()));
+}

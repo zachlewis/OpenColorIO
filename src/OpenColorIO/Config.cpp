@@ -3317,13 +3317,15 @@ void Config::removeNamedTransform(const char * name)
         if (StringUtils::Lower((*itr)->getName()) == nameToSearch)
         {
             getImpl()->m_allNamedTransforms.erase(itr);
+
+            AutoMutex lock(getImpl()->m_cacheidMutex);
+            getImpl()->resetCacheIDs();
+            getImpl()->refreshActiveColorSpaces();
             return;
         }
     }
 
-    AutoMutex lock(getImpl()->m_cacheidMutex);
-    getImpl()->resetCacheIDs();
-    getImpl()->refreshActiveColorSpaces();
+    // Nothing was removed, so there is no derived state to refresh.
 }
 
 void Config::clearNamedTransforms()
