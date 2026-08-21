@@ -280,8 +280,17 @@ public:
     // Refer to Config::Impl::refreshActiveColorSpaces() to have the implementation details.
 
     ColorSpaceSetRcPtr m_allColorSpaces; // All the color spaces (i.e. no filtering).
-    StringUtils::StringVec m_activeColorSpaceNames; // Active color space names.
-    StringUtils::StringVec m_inactiveColorSpaceNames; // inactive color space names.
+
+    // The four active/inactive name lists below are caches, computed from the color spaces,
+    // the named transforms and the inactive name strings.  Editing the config marks them as
+    // needing a refresh rather than rebuilding them, and they are rebuilt on the next query.
+    // Rebuilding is O(number of color spaces x number of inactive names), so refreshing on
+    // every edit made bulk edits (reading a config file adds the color spaces one at a time)
+    // much more expensive than necessary.
+    mutable bool m_activeColorSpacesNeedRefresh = false;
+
+    mutable StringUtils::StringVec m_activeColorSpaceNames; // Active color space names.
+    mutable StringUtils::StringVec m_inactiveColorSpaceNames; // inactive color space names.
 
     // Inactive color space or named transform filter from API request.
     std::string m_inactiveColorSpaceNamesAPI;
@@ -314,9 +323,9 @@ public:
     // All the named transforms(i.e. no filtering).
     std::vector<ConstNamedTransformRcPtr> m_allNamedTransforms;
     // Active named transform names.
-    StringUtils::StringVec m_activeNamedTransformNames;
+    mutable StringUtils::StringVec m_activeNamedTransformNames;
     // Inactive named transform names.
-    StringUtils::StringVec m_inactiveNamedTransformNames;
+    mutable StringUtils::StringVec m_inactiveNamedTransformNames;
 
     // Misc
     std::vector<double> m_defaultLumaCoefs;
@@ -392,6 +401,7 @@ public:
 
             // Deep copy the colorspaces.
             m_allColorSpaces = rhs.m_allColorSpaces->createEditableCopy();
+            m_activeColorSpacesNeedRefresh = rhs.m_activeColorSpacesNeedRefresh;
             m_activeColorSpaceNames       = rhs.m_activeColorSpaceNames;
             m_inactiveColorSpaceNames     = rhs.m_inactiveColorSpaceNames;
             m_inactiveColorSpaceNamesConf = rhs.m_inactiveColorSpaceNamesConf;
@@ -525,7 +535,23 @@ public:
         INACTIVE_ALL
     };
     StringUtils::StringVec buildInactiveNamesList(InactiveType type) const;
-    void refreshActiveColorSpaces();
+    void refreshActiveColorSpaces() const;
+
+    // Any time you modify the color spaces, the named transforms or the inactive name
+    // strings, you must call this so that the active/inactive name lists get rebuilt.
+    void invalidateActiveColorSpaces() noexcept
+    {
+        m_activeColorSpacesNeedRefresh = true;
+    }
+
+    // Rebuild the active/inactive name lists if a previous edit invalidated them.
+    void refreshActiveColorSpacesIfNeeded() const
+    {
+        if (m_activeColorSpacesNeedRefresh)
+        {
+            refreshActiveColorSpaces();
+        }
+    }
 
     ConstViewTransformRcPtr getViewTransform(const char * name) const noexcept
     {
@@ -776,7 +802,7 @@ public:
 
         AutoMutex lock(m_cacheidMutex);
         resetCacheIDs();
-        refreshActiveColorSpaces();
+        invalidateActiveColorSpaces();
     }
 
     void checkVersionConsistency(ConstTransformRcPtr & transform) const;
@@ -1090,7 +1116,7 @@ public:
         AutoMutex lock(m_cacheidMutex);
         resetCacheIDs();
 
-        refreshActiveColorSpaces();
+        invalidateActiveColorSpaces();
 
         // Find the relative display index i.e. the index in the active display list.
 
@@ -2364,6 +2390,7 @@ int Config::getNumColorSpaces(SearchReferenceSpaceType searchReferenceType,
     }
     case COLORSPACE_ACTIVE:
     {
+        getImpl()->refreshActiveColorSpacesIfNeeded();
         const size_t nbCS = getImpl()->m_activeColorSpaceNames.size();
         if (searchReferenceType == SEARCH_REFERENCE_SPACE_ALL)
         {
@@ -2381,6 +2408,7 @@ int Config::getNumColorSpaces(SearchReferenceSpaceType searchReferenceType,
     }
     case COLORSPACE_INACTIVE:
     {
+        getImpl()->refreshActiveColorSpacesIfNeeded();
         const auto ics = getImpl()->m_inactiveColorSpaceNames.size();
         if (searchReferenceType == SEARCH_REFERENCE_SPACE_ALL)
         {
@@ -2442,6 +2470,7 @@ const char * Config::getColorSpaceNameByIndex(SearchReferenceSpaceType searchRef
     }
     case COLORSPACE_ACTIVE:
     {
+        getImpl()->refreshActiveColorSpacesIfNeeded();
         if (searchReferenceType == SEARCH_REFERENCE_SPACE_ALL)
         {
             if (index < (int)getImpl()->m_activeColorSpaceNames.size())
@@ -2471,6 +2500,7 @@ const char * Config::getColorSpaceNameByIndex(SearchReferenceSpaceType searchRef
     }
     case COLORSPACE_INACTIVE:
     {
+        getImpl()->refreshActiveColorSpacesIfNeeded();
         if (searchReferenceType == SEARCH_REFERENCE_SPACE_ALL)
         {
             if (index < (int)getImpl()->m_inactiveColorSpaceNames.size())
@@ -2654,7 +2684,7 @@ void Config::addColorSpace(const ConstColorSpaceRcPtr & original)
 
     AutoMutex lock(getImpl()->m_cacheidMutex);
     getImpl()->resetCacheIDs();
-    getImpl()->refreshActiveColorSpaces();
+    getImpl()->invalidateActiveColorSpaces();
 }
 
 void Config::removeColorSpace(const char * name)
@@ -2663,7 +2693,7 @@ void Config::removeColorSpace(const char * name)
 
     AutoMutex lock(getImpl()->m_cacheidMutex);
     getImpl()->resetCacheIDs();
-    getImpl()->refreshActiveColorSpaces();
+    getImpl()->invalidateActiveColorSpaces();
 }
 
 bool Config::isColorSpaceUsed(const char * name) const noexcept
@@ -2786,7 +2816,7 @@ void Config::clearColorSpaces()
 
     AutoMutex lock(getImpl()->m_cacheidMutex);
     getImpl()->resetCacheIDs();
-    getImpl()->refreshActiveColorSpaces();
+    getImpl()->invalidateActiveColorSpaces();
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -3084,11 +3114,13 @@ int Config::getNumNamedTransforms(NamedTransformVisibility visibility) const noe
     }
     case NAMEDTRANSFORM_ACTIVE:
     {
+        getImpl()->refreshActiveColorSpacesIfNeeded();
         res = (int)getImpl()->m_activeNamedTransformNames.size();
         break;
     }
     case NAMEDTRANSFORM_INACTIVE:
     {
+        getImpl()->refreshActiveColorSpacesIfNeeded();
         res = (int)getImpl()->m_inactiveNamedTransformNames.size();
         break;
     }
@@ -3118,6 +3150,7 @@ const char * Config::getNamedTransformNameByIndex(NamedTransformVisibility visib
     }
     case NAMEDTRANSFORM_ACTIVE:
     {
+        getImpl()->refreshActiveColorSpacesIfNeeded();
         if (index < (int)getImpl()->m_activeNamedTransformNames.size())
         {
             return getImpl()->m_activeNamedTransformNames[index].c_str();
@@ -3126,6 +3159,7 @@ const char * Config::getNamedTransformNameByIndex(NamedTransformVisibility visib
     }
     case NAMEDTRANSFORM_INACTIVE:
     {
+        getImpl()->refreshActiveColorSpacesIfNeeded();
         if (index < (int)getImpl()->m_inactiveNamedTransformNames.size())
         {
             return getImpl()->m_inactiveNamedTransformNames[index].c_str();
@@ -3304,7 +3338,7 @@ void Config::addNamedTransform(const ConstNamedTransformRcPtr & nt)
     }
 
     getImpl()->resetCacheIDs();
-    getImpl()->refreshActiveColorSpaces();
+    getImpl()->invalidateActiveColorSpaces();
 }
 
 void Config::removeNamedTransform(const char * name)
@@ -3323,7 +3357,7 @@ void Config::removeNamedTransform(const char * name)
 
     AutoMutex lock(getImpl()->m_cacheidMutex);
     getImpl()->resetCacheIDs();
-    getImpl()->refreshActiveColorSpaces();
+    getImpl()->invalidateActiveColorSpaces();
 }
 
 void Config::clearNamedTransforms()
@@ -3331,7 +3365,7 @@ void Config::clearNamedTransforms()
     getImpl()->m_allNamedTransforms.clear();
 
     getImpl()->resetCacheIDs();
-    getImpl()->refreshActiveColorSpaces();
+    getImpl()->invalidateActiveColorSpaces();
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -5418,8 +5452,10 @@ StringUtils::StringVec Config::Impl::buildInactiveNamesList(InactiveType type) c
     return res;
 }
 
-void Config::Impl::refreshActiveColorSpaces()
+void Config::Impl::refreshActiveColorSpaces() const
 {
+    m_activeColorSpacesNeedRefresh = false;
+
     m_activeColorSpaceNames.clear();
     m_activeNamedTransformNames.clear();
 
@@ -5566,6 +5602,11 @@ ConstConfigRcPtr Config::Impl::Read(std::istream & istream, const char * filenam
     // use the Config public API, the variable reset highlights that only the
     // env. variable and the config contents are valid after a config file read.
     config->getImpl()->m_inactiveColorSpaceNamesAPI.clear();
+
+    // Build the active/inactive name lists now rather than on the first query, so that the
+    // config that is handed back is complete and may be shared between threads for read-only
+    // use.  This is the only rebuild needed for the whole file: the color spaces are added
+    // one at a time above, and each of those adds only marks the lists as needing a refresh.
     config->getImpl()->refreshActiveColorSpaces();
 
     return config;
@@ -5585,6 +5626,11 @@ ConstConfigRcPtr Config::Impl::Read(std::istream & istream, ConfigIOProxyRcPtr c
     // use the Config public API, the variable reset highlights that only the
     // env. variable and the config contents are valid after a config file read.
     config->getImpl()->m_inactiveColorSpaceNamesAPI.clear();
+
+    // Build the active/inactive name lists now rather than on the first query, so that the
+    // config that is handed back is complete and may be shared between threads for read-only
+    // use.  This is the only rebuild needed for the whole file: the color spaces are added
+    // one at a time above, and each of those adds only marks the lists as needing a refresh.
     config->getImpl()->refreshActiveColorSpaces();
 
     // Set the ConfigIOProxy object.

@@ -4790,9 +4790,17 @@ inline void load(const YAML::Node& node, ConfigRcPtr & config, const char* filen
                 {
                     ColorSpaceRcPtr cs = ColorSpace::Create(REFERENCE_SPACE_SCENE);
                     load(val, cs, config->getMajorVersion());
-                    for(int ii = 0; ii < config->getNumColorSpaces(); ++ii)
+                    // Use the ALL visibility rather than the (default) ACTIVE one: whether a
+                    // color space is listed in inactive_colorspaces has no bearing on whether
+                    // the file defines it twice, and querying the active list here forces its
+                    // cache to be rebuilt once per color space of the file.
+                    for(int ii = 0;
+                        ii < config->getNumColorSpaces(SEARCH_REFERENCE_SPACE_ALL, COLORSPACE_ALL);
+                        ++ii)
                     {
-                        if(strcmp(config->getColorSpaceNameByIndex(ii), cs->getName()) == 0)
+                        if(strcmp(config->getColorSpaceNameByIndex(SEARCH_REFERENCE_SPACE_ALL,
+                                                                   COLORSPACE_ALL, ii),
+                                  cs->getName()) == 0)
                         {
                             std::ostringstream os;
                             os << "Colorspace with name '" << cs->getName() << "' already defined.";
@@ -4826,9 +4834,14 @@ inline void load(const YAML::Node& node, ConfigRcPtr & config, const char* filen
                 {
                     ColorSpaceRcPtr cs = ColorSpace::Create(REFERENCE_SPACE_DISPLAY);
                     load(val, cs, config->getMajorVersion());
-                    for (int ii = 0; ii < config->getNumColorSpaces(); ++ii)
+                    // See the comment in the 'colorspaces' section above.
+                    for (int ii = 0;
+                         ii < config->getNumColorSpaces(SEARCH_REFERENCE_SPACE_ALL, COLORSPACE_ALL);
+                         ++ii)
                     {
-                        if (strcmp(config->getColorSpaceNameByIndex(ii), cs->getName()) == 0)
+                        if (strcmp(config->getColorSpaceNameByIndex(SEARCH_REFERENCE_SPACE_ALL,
+                                                                    COLORSPACE_ALL, ii),
+                                   cs->getName()) == 0)
                         {
                             std::ostringstream os;
                             os << "Colorspace with name '" << cs->getName() << "' already defined.";

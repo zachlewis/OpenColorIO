@@ -842,6 +842,33 @@ OCIO_ADD_TEST(Config, validation)
     }
 
     {
+    // A color space that is defined twice is rejected whether or not its name appears in
+    // the inactive_colorspaces list.
+
+    std::string SIMPLE_PROFILE =
+    "ocio_profile_version: 2\n"
+    "roles:\n"
+    "  default: raw\n"
+    "inactive_colorspaces: [dupe]\n"
+    "displays:\n"
+    "  sRGB:\n"
+    "  - !<View> {name: Raw, colorspace: raw}\n"
+    "colorspaces:\n"
+    "  - !<ColorSpace>\n"
+    "      name: raw\n"
+    "  - !<ColorSpace>\n"
+    "      name: dupe\n"
+    "  - !<ColorSpace>\n"
+    "      name: dupe\n"
+    "\n";
+
+    std::istringstream is;
+    is.str(SIMPLE_PROFILE);
+    OCIO_CHECK_THROW_WHAT(OCIO::Config::CreateFromStream(is), OCIO::Exception,
+                          "Colorspace with name 'dupe' already defined");
+    }
+
+    {
     std::string SIMPLE_PROFILE =
     "ocio_profile_version: 1\n"
     "colorspaces:\n"
